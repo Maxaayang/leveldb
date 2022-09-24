@@ -1,0 +1,13 @@
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+    "files.associations": {
+        "type_traits": "cpp"
+    },
+    "workbench.colorCustomizations": {
+        "editor.lineHighlightBackground": "#1073cf2d",
+        "editor.lineHighlightBorder": "#9fced11f",
+        "activityBar.background": "#022C62",
+        "titleBar.activeBackground": "#023D89",
+        "titleBar.activeForeground": "#F6FAFF"
+    }
+}
