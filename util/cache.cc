@@ -43,7 +43,7 @@ namespace {
 struct LRUHandle {
   void* value;
   void (*deleter)(const Slice&, void* value); // 析构器, 外部申请内存, 引用计数为0调用
-  LRUHandle* next_hash; // Hash桶单向链表的下一个节点
+  LRUHandle* next_hash; // 哈希冲突时指向下一个LRUHandle
   LRUHandle* next;      // 双向链表的下一个节点
   LRUHandle* prev;      // 双向链表的上一个节点
   size_t charge;  // TODO(opt): Only allow uint32_t? 记录当前value锁占用的内存大小, 用于后面超出容量后需要进行lru
@@ -105,9 +105,9 @@ class HandleTable {
  private:
   // The table consists of an array of buckets where each bucket is
   // a linked list of cache entries that hash into the bucket.
-  uint32_t length_; // hash桶的大小
-  uint32_t elems_;  // hash桶中所有元素的个数
-  LRUHandle** list_;// hash桶链表, 指针数组形式
+  uint32_t length_; // hashTable的大小
+  uint32_t elems_;  // hashTable中所有元素的个数
+  LRUHandle** list_;// hashTable链表, 指针数组形式
 
   // Return a pointer to slot that points to a cache entry that
   // matches key/hash.  If there is no such cache entry, return a
@@ -192,12 +192,16 @@ class LRUCache {
   // Dummy head of LRU list.
   // lru.prev is newest entry, lru.next is oldest entry.
   // Entries have refs==1 and in_cache==true.
+  // 头节点 lru 双向循环链表, prev是最先访问的, next是最后访问的
+  // lru_ 保存 reds==1并且in_cache==true的handle
+  // lru_ 是最旧的节点
   LRUHandle lru_ GUARDED_BY(mutex_);
 
   // Dummy head of in-use list.
   // Entries are in use by clients, and have refs >= 2 and in_cache==true.
   LRUHandle in_use_ GUARDED_BY(mutex_);
 
+  // Hashtable用于快速查找
   HandleTable table_ GUARDED_BY(mutex_);
 };
 
@@ -259,7 +263,7 @@ void LRUCache::LRU_Remove(LRUHandle* e) {
   e->prev->next = e->next;
 }
 
-// 插入头结点之前
+// 插入头结点之前, 即链表末尾
 void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
   // Make "e" newest entry by inserting just before *list
   e->next = list;
@@ -300,6 +304,9 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   e->refs = 1;  // for the returned handle.
   std::memcpy(e->key_data, key.data(), key.size());
 
+  // 容量如果 <0 证明不需要缓存
+  // 插入时, 默认引用计数为2, 因为需要将该节点返回给上层使用, 放在 in_use_ 链表
+  // 插入hashTable是时遇见重复的key, 将其删除
   if (capacity_ > 0) {
     e->refs++;  // for the cache's reference.
     e->in_cache = true;
@@ -329,22 +336,27 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 
 // If e != nullptr, finish removing *e from the cache; it has already been
 // removed from the hash table.  Return whether e != nullptr.
+// 删除节点
 bool LRUCache::FinishErase(LRUHandle* e) {
   if (e != nullptr) {
     assert(e->in_cache);
+    // 在双向链表中删除
     LRU_Remove(e);
     e->in_cache = false;
     usage_ -= e->charge;
+    // 引用计数归零
     Unref(e);
   }
   return e != nullptr;
 }
 
+// 先找到节点再进行删除
 void LRUCache::Erase(const Slice& key, uint32_t hash) {
   MutexLock l(&mutex_);
   FinishErase(table_.Remove(key, hash));
 }
 
+// 遍历 lru_ 链表进行清理节点
 void LRUCache::Prune() {
   MutexLock l(&mutex_);
   while (lru_.next != &lru_) {
@@ -357,12 +369,15 @@ void LRUCache::Prune() {
   }
 }
 
+// LRUCache接口都被加锁保护, 为了减少锁持有的时间, 提高缓存命中率, 通过ShardedLRUCache管理16个LRUCache
+// 使用hash方式将一块cache缓冲区划分为多个小块的缓冲区. Shard函数用位运算方式拿到取模的结果, 返回值在0~kNumShards区间
 static const int kNumShardBits = 4;
 static const int kNumShards = 1 << kNumShardBits;
 
 class ShardedLRUCache : public Cache {
  private:
   LRUCache shard_[kNumShards];
+  // 提供递增序号 last_id_ 用于表示唯一的 cache 方便共享使用
   port::Mutex id_mutex_;
   uint64_t last_id_;
 
@@ -370,9 +385,11 @@ class ShardedLRUCache : public Cache {
     return Hash(s.data(), s.size(), 0);
   }
 
+  // 将hash函数控制在4bit, 即 <16 放入对应 LRUCache 中
   static uint32_t Shard(uint32_t hash) { return hash >> (32 - kNumShardBits); }
 
  public:
+  // 将容量平摊到每一个LRUCache
   explicit ShardedLRUCache(size_t capacity) : last_id_(0) {
     const size_t per_shard = (capacity + (kNumShards - 1)) / kNumShards;
     for (int s = 0; s < kNumShards; s++) {
@@ -389,10 +406,12 @@ class ShardedLRUCache : public Cache {
     const uint32_t hash = HashSlice(key);
     return shard_[Shard(hash)].Lookup(key, hash);
   }
+  // 释放引用
   void Release(Handle* handle) override {
     LRUHandle* h = reinterpret_cast<LRUHandle*>(handle);
     shard_[Shard(h->hash)].Release(handle);
   }
+  // 删除
   void Erase(const Slice& key) override {
     const uint32_t hash = HashSlice(key);
     shard_[Shard(hash)].Erase(key, hash);
