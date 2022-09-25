@@ -129,13 +129,13 @@ class SkipList {
 
   // Immutable after construction
   Comparator const compare_;
-  Arena* const arena_;  // Arena used for allocations of nodes
+  Arena* const arena_;  // Arena used for allocations of nodes, 内存分配器
 
-  Node* const head_;
+  Node* const head_;  // 头节点, dummy 作用
 
   // Modified only by Insert().  Read racily by readers, but stale
   // values are ok.
-  std::atomic<int> max_height_;  // Height of the entire list
+  std::atomic<int> max_height_;  // Height of the entire list, 目前跳表的最大层
 
   // Read/written only by Insert().
   Random rnd_;
@@ -184,6 +184,7 @@ struct SkipList<Key, Comparator>::Node {
   // 提前使用声明分配一个对象是因为第0层数据一定是有的，而且是全部数据
   // 使用数组的方式，那么后续分配的内存就是连续的, cache-friend
   // 指向指针数组的指针
+  // 这里为了节省内存, 使用的是动态分配内存
   std::atomic<Node*> next_[1];
 };
 
@@ -191,6 +192,7 @@ struct SkipList<Key, Comparator>::Node {
 template <typename Key, class Comparator>
 typename SkipList<Key, Comparator>::Node* SkipList<Key, Comparator>::NewNode(
     const Key& key, int height) {
+      // 内存大小为Node的大小和动态数组的大小之和, height - 1 是因为Node内部已经有一个Node*了
   char* const node_memory = arena_->AllocateAligned(
       sizeof(Node) + sizeof(std::atomic<Node*>) * (height - 1));
   return new (node_memory) Node(key);
@@ -265,7 +267,7 @@ int SkipList<Key, Comparator>::RandomHeight() {
 
 template <typename Key, class Comparator>
 bool SkipList<Key, Comparator>::KeyIsAfterNode(const Key& key, Node* n) const {
-  // null n is considered infinite
+  // null n is considered infinite, 链表是按照升序排列的
   return (n != nullptr) && (compare_(n->key, key) < 0);
 }
 
@@ -382,6 +384,13 @@ void SkipList<Key, Comparator>::Insert(const Key& key) {
     // 此句 NoBarrier_SetNext() 版本就够用了，因为后续 prev[i]->SetNext(i, x) 语句会进行强制同步。
     // 并且为了保证并发读的正确性，一定要先设置本节点指针，再设置原条表中节点（prev）指针
     x->NoBarrier_SetNext(i, prev[i]->NoBarrier_Next(i));
+    // 使用 SetNext 时, 保证前面的已经执行, 即设置好x节点的下一个节点了
+    // 如果继续使用NoBarrier就会导致先设置prev->next = x, 但是 x->next 还没有设置, 其他线程读的时候就会出错
+
+    // 设置的顺序是从0层开始的, 如果从最大层开始, 会出现以下的情况
+    // 查找某节点是否存在, 从最大层开始, 查找失败, 会进入下一层
+    // 但是该层目前还没有加入链表中, 即这个循环还没有结束
+    // 这样访问的节点的 nexxt[i] 为 nullptr, 就无法找到节点, 从而出现问题
     prev[i]->SetNext(i, x);
   }
 }
