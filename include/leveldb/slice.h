@@ -24,6 +24,9 @@
 
 namespace leveldb {
 
+// 为什么有Slice？
+// string默认语义为拷贝, 会损失性能(在可预期的条件下, 指针传递即可)
+// 标准库不支持remove_prefix和starts_with等函数, 不太方便
 class LEVELDB_EXPORT Slice {
  public:
   // Create an empty slice.

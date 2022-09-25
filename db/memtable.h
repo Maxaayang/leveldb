@@ -27,6 +27,8 @@ class MemTable {
   MemTable& operator=(const MemTable&) = delete;
 
   // Increase reference count.
+  // 采用引用计数的方式来控制析构
+  // 构造后需要手动调用Ref函数
   void Ref() { ++refs_; }
 
   // Drop reference count.  Delete if no more references exist.
@@ -66,6 +68,8 @@ class MemTable {
   friend class MemTableIterator;
   friend class MemTableBackwardIterator;
 
+  // 由于存放KV时, memtable会加入其他字段, 创建一个内部比较器去包装外部的比较器
+  // 通过内部比较器去包装数据, 然后调用外部比较器进行比较, 以此来屏蔽memtable对数据的包装
   struct KeyComparator {
     const InternalKeyComparator comparator;
     explicit KeyComparator(const InternalKeyComparator& c) : comparator(c) {}

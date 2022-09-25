@@ -13,6 +13,8 @@
 
 namespace leveldb {
 
+// Arena仅支持分配内存, 内存的释放是在析构arena时发生
+// 适合内存不断增加, 且会常驻内存不需要随时释放的场景
 class Arena {
  public:
   Arena();
@@ -39,7 +41,9 @@ class Arena {
   char* AllocateNewBlock(size_t block_bytes);
 
   // Allocation state
+  // 记录在内存块中可以分配的起始地址
   char* alloc_ptr_;
+  // 记录当前内存块还剩多少的字节
   size_t alloc_bytes_remaining_;
 
   // Array of new[] allocated memory blocks
@@ -49,6 +53,7 @@ class Arena {
   //
   // TODO(costan): This member is accessed via atomics, but the others are
   //               accessed without any locking. Is this OK?
+  // 内存使用率
   std::atomic<size_t> memory_usage_;
 };
 

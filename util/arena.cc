@@ -6,6 +6,7 @@
 
 namespace leveldb {
 
+// 每一块内存的大小
 static const int kBlockSize = 4096;
 
 Arena::Arena()
@@ -35,6 +36,7 @@ char* Arena::AllocateFallback(size_t bytes) {
   return result;
 }
 
+// 分配对齐的内存
 char* Arena::AllocateAligned(size_t bytes) {
   // 判断当前计算机的位数
   const int align = (sizeof(void*) > 8) ? sizeof(void*) : 8;

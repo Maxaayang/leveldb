@@ -22,7 +22,7 @@ Status::Status(Code code, const Slice& msg, const Slice& msg2) {
   assert(code != kOk);
   const uint32_t len1 = static_cast<uint32_t>(msg.size());
   const uint32_t len2 = static_cast<uint32_t>(msg2.size());
-  const uint32_t size = len1 + (len2 ? (2 + len2) : 0);
+  const uint32_t size = len1 + (len2 ? (2 + len2) : 0); // 这里+2是因为中间有 ': '
   char* result = new char[size + 5];
   std::memcpy(result, &size, sizeof(size));
   result[4] = static_cast<char>(code);

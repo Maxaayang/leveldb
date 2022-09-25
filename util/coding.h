@@ -45,6 +45,7 @@ int VarintLength(uint64_t v);
 // Lower-level versions of Put... that write directly into a character buffer
 // and return a pointer just past the last byte written.
 // REQUIRES: dst has enough space for the value being written
+// 变长编码的目的是为了减少空间的占用
 char* EncodeVarint32(char* dst, uint32_t value);
 char* EncodeVarint64(char* dst, uint64_t value);
 

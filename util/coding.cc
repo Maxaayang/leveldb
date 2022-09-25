@@ -19,6 +19,7 @@ void PutFixed64(std::string* dst, uint64_t value) {
 }
 
 // 变长编码, 每一个Byte最高位bit用0/1表示该整数是否结束, 剩余7bit表示实际的数值
+// 0表示结束了, 1表示没有结束
 char* EncodeVarint32(char* dst, uint32_t v) {
   // Operate on characters as unsigneds
   uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);

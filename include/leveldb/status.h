@@ -21,6 +21,8 @@
 
 namespace leveldb {
 
+// 基本组成
+// 4字节的消息长度, 1字节的整型code, 以及具体的消息内容
 class LEVELDB_EXPORT Status {
  public:
   // Create a success status.
