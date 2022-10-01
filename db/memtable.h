@@ -83,7 +83,7 @@ class MemTable {
   KeyComparator comparator_;
   int refs_;
   Arena arena_;
-  Table table_;
+  Table table_; // 跳表
 };
 
 }  // namespace leveldb

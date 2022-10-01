@@ -93,8 +93,8 @@ class SkipList {
     void SeekToLast();
 
    private:
-    const SkipList* list_;
-    Node* node_;
+    const SkipList* list_;  // 指向所属的跳表, 因为查找的时候可能要从头开始查找
+    Node* node_;  // 指向跳表中的节点
     // Intentionally copyable
   };
 

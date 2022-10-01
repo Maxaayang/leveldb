@@ -41,12 +41,12 @@ class BlockBuilder {
   bool empty() const { return buffer_.empty(); }
 
  private:
-  const Options* options_;
+  const Options* options_;          // 配置项
   std::string buffer_;              // Destination buffer
-  std::vector<uint32_t> restarts_;  // Restart points
-  int counter_;                     // Number of entries emitted since restart
-  bool finished_;                   // Has Finish() been called?
-  std::string last_key_;
+  std::vector<uint32_t> restarts_;  // Restart points, 重启点
+  int counter_;                     // Number of entries emitted since restart, 记录写入多少key数据
+  bool finished_;                   // Has Finish() been called?, 标记是否Finsh
+  std::string last_key_;            // 上一个写入的key
 };
 
 }  // namespace leveldb

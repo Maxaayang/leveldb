@@ -41,12 +41,12 @@ class FilterBlockBuilder {
  private:
   void GenerateFilter();
 
-  const FilterPolicy* policy_;
-  std::string keys_;             // Flattened key contents
-  std::vector<size_t> start_;    // Starting index in keys_ of each key
-  std::string result_;           // Filter data computed so far
-  std::vector<Slice> tmp_keys_;  // policy_->CreateFilter() argument
-  std::vector<uint32_t> filter_offsets_;
+  const FilterPolicy* policy_;   // 自定义过滤器函数
+  std::string keys_;             // Flattened key contents, 将所有 key 都以 append 形式写入 keys_ 字符串
+  std::vector<size_t> start_;    // Starting index in keys_ of each key, 记录 keys_ 字符串中每个 key 的长度
+  std::string result_;           // Filter data computed so far, filter列表的buffer
+  std::vector<Slice> tmp_keys_;  // policy_->CreateFilter() argument, 临时存储已插入的key
+  std::vector<uint32_t> filter_offsets_;  // filter 的 offset, filter 在 result_ 中的 offset 
 };
 
 class FilterBlockReader {

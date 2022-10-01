@@ -19,6 +19,8 @@ static Slice GetLengthPrefixedSlice(const char* data) {
 }
 
 MemTable::MemTable(const InternalKeyComparator& comparator)
+    // 跳表使用内部 KeyComparator 作为比较器
+    // 内部 KeyComparator 构造时，传入用户自定义 comparator 比较器
     : comparator_(comparator), refs_(0), table_(comparator_, &arena_) {}
 
 MemTable::~MemTable() { assert(refs_ == 0); }
