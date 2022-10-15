@@ -1336,11 +1336,19 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
   // Allow the group to grow up to a maximum size, but if the
   // original write is small, limit the growth so we do not slow
   // down the small write too much.
+  // 为什么调整 max_size?
+  // 数据库的key-value的size是比较类似的, 如果第一个batch的size就比较小, 那么后续的batch大概率也很小, 
+  // 如果还按照之前的max_size实现, 可能一次合并大量的写操作, 这样虽然吞吐量上去了, 但是写操作的延时上升了
   size_t max_size = 1 << 20;
   if (size <= (128 << 10)) {
     max_size = size + (128 << 10);
   }
 
+// 从前向后遍历任务队列writers_, 把Writer的WriteBatch合并到result中
+// 提前终止合并:
+// 1. 当前Writer要求Sync, 而第一个Writer不要求Sync, 两个的吸盘写入策略不一样
+// 2. result的size已经超过max_size
+// 3. writers_已经遍历完成
   *last_writer = first;
   std::deque<Writer*>::iterator iter = writers_.begin();
   ++iter;  // Advance past "first"

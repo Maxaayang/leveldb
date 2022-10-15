@@ -89,6 +89,7 @@ int WriteBatchInternal::Count(const WriteBatch* b) {
 }
 
 // 键值对的大小固定为4个字节
+// 以小端编码的方式写入WriteBatch的rep_的count域
 void WriteBatchInternal::SetCount(WriteBatch* b, int n) {
   EncodeFixed32(&b->rep_[8], n);
 }
@@ -119,6 +120,7 @@ void WriteBatch::Append(const WriteBatch& source) {
   WriteBatchInternal::Append(this, &source);
 }
 
+// 匿名namespace, 可以让namespace内部的函数、类、对象等只能在当前文件里被访问
 namespace {
 class MemTableInserter : public WriteBatch::Handler {
  public:
@@ -136,6 +138,7 @@ class MemTableInserter : public WriteBatch::Handler {
 };
 }  // namespace
 
+// 构造MemTableInserter对象, 填充sequence和Memtable对象指针, 然后调用WriteBatch的Iterate把当前batch的更新记录插入到memtable中
 Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
   MemTableInserter inserter;
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
@@ -143,6 +146,8 @@ Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
   return b->Iterate(&inserter);
 }
 
+// 使用conents覆盖rep_, kHeader为12, 是sequence和count的总长度
+// assign: 赋值给字符串
 void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
   assert(contents.size() >= kHeader);
   b->rep_.assign(contents.data(), contents.size());

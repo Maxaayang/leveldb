@@ -75,6 +75,11 @@ class LEVELDB_EXPORT WriteBatch {
  private:
   friend class WriteBatchInternal;
 
+  // 所有的更新记录都会编码后写入到这个rep_中
+  // 格式 sequence(8字节), count(4字节), record1(变长), record2(变长) ...
+  // sequence: 64bit的序列号, 每个WriteBatch都有唯一的序列号
+  // count: rep_包含的record数量
+  // record 格式: ValueType(1字节), key size(变长), key(key size), value size(变长), value(value size)
   std::string rep_;  // See comment in write_batch.cc for the format of rep_
 };
 

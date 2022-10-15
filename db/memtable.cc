@@ -98,6 +98,7 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
   const size_t encoded_len = VarintLength(internal_key_size) +
                              internal_key_size + VarintLength(val_size) +
                              val_size;
+  // internal_key_size变长编码, key, seq(7 字节), type(1 字节), value_size变长编码, value
   char* buf = arena_.Allocate(encoded_len);
   char* p = EncodeVarint32(buf, internal_key_size);
   std::memcpy(p, key.data(), key_size);
@@ -111,6 +112,8 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
   table_.Insert(buf);
 }
 
+// LookupKey, 用于对原始的key进行编码, 用于查找
+// s 保存查找的状态
 bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
   Slice memkey = key.memtable_key();
   Table::Iterator iter(&table_);

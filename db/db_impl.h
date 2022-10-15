@@ -184,7 +184,7 @@ class DBImpl : public DB {
 
   // Queue of writers.
   std::deque<Writer*> writers_ GUARDED_BY(mutex_);
-  WriteBatch* tmp_batch_ GUARDED_BY(mutex_);
+  WriteBatch* tmp_batch_ GUARDED_BY(mutex_);  // 合并后的batch的缓冲区, 外部完成写入和落盘后要把tmp_batch_清空, 以便下次使用
 
   SnapshotList snapshots_ GUARDED_BY(mutex_);
 
